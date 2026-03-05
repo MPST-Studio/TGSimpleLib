@@ -1,0 +1,37 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>netstandard2.0</TargetFramework>
+
+		<LangVersion>latest</LangVersion>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+
+		<PackageId>TGSimpleLib</PackageId>
+		<Version>1.1.0</Version>
+		<Authors>MPST_Studio</Authors>
+		<Title>TGSimpleLib</Title>
+		<Description>
+			(EN) A simple library for notifications and interactive polling in Telegram.
+			(RU) Простая библиотека для уведомлений и интерактивных опросов в Telegram.
+		</Description>
+		<PackageTags>telegram;bot;simple;notify;ask;polling</PackageTags>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
+		<GenerateDocumentationFile>true</GenerateDocumentationFile>
+		<PackageProjectUrl>https://github.com/wertkiz/TGSimpleLib</PackageProjectUrl>
+		<RepositoryUrl>https://github.com/wertkiz/TGSimpleLib</RepositoryUrl>
+   
+		<RepositoryType>git</RepositoryType>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Telegram.Bot" Version="22.9.5" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Telegram.Bot" Version="22.3.0" />
+		<None Include="README.md" Pack="true" PackagePath="\"/>
+	</ItemGroup>
+
+</Project>
