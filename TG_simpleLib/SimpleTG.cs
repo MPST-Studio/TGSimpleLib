@@ -19,6 +19,12 @@ public class SimpleTG
     private readonly int _defaultTimeout;
 
     private readonly ConcurrentDictionary<int, PendingQuestion> _pendingRequests = new();
+    private readonly ConcurrentDictionary<string, Func<Task>> _commands = new();
+
+    /// <summary>
+    /// Occurs when a new log entry is generated.
+    /// </summary>
+    public event EventHandler<string>? OnLog;
 
     /// <summary>
     /// Initializes a new instance of the SimpleTG bot wrapper.
@@ -43,6 +49,7 @@ public class SimpleTG
     /// <param name="text">Notification text.</param>
     public async Task NotifyAsync(string text)
     {
+        Log($"Notification sent to all admins: {text}");
         foreach (var id in _adminIds)
         {
             try { await _client.SendMessage(id, text); } catch { }
@@ -57,9 +64,41 @@ public class SimpleTG
     /// <returns>True if "Yes" was pressed, False if "No" or timeout occurred.</returns>
     public async Task<bool> AskBoolAsync(string text, int? timeout = null)
     {
-        // Поменяли на Yes / No
+        // Мы не вызываем здесь Log, так как он сработает внутри AskChoiceAsync
         var res = await AskChoiceAsync(text, new[] { "Yes", "No" }, timeout);
         return res == "Yes";
+    }
+
+    /// <summary>
+    /// Sends a message with custom choice buttons.
+    /// </summary>
+    /// <param name="text">The message text.</param>
+    /// <param name="choices">Array of button labels.</param>
+    /// <param name="timeout">Optional timeout in seconds.</param>
+    /// <returns>The label of the pressed button or null if timeout occurred.</returns>
+    public async Task<string?> AskChoiceAsync(string text, string[] choices, int? timeout = null)
+    {
+        var buttons = choices
+            .Select(c => InlineKeyboardButton.WithCallbackData(c, c))
+            .Select((item, index) => new { item, index })
+            .GroupBy(x => x.index / 2)
+            .Select(g => g.Select(x => x.item).ToArray())
+            .ToArray();
+        var keyboard = new InlineKeyboardMarkup(buttons);
+        var question = new PendingQuestion();
+
+        foreach (var chatId in _adminIds)
+        {
+            try
+            {
+                var msg = await _client.SendMessage(chatId, text, replyMarkup: keyboard);
+                question.SentMessages.Add((chatId, msg.Id));
+                _pendingRequests[msg.Id] = question;
+            }
+            catch { }
+        }
+        Log($"Question sent: {text} | Options: {string.Join(", ", choices)}");
+        return await WaitForResponseAsync(question, timeout ?? _defaultTimeout);
     }
 
     /// <summary>
@@ -124,7 +163,7 @@ public class SimpleTG
             }
             catch { }
         }
-
+        Log($"Text request sent: {text}");
         return await WaitForResponseAsync(question, timeout ?? _defaultTimeout);
     }
 
@@ -155,41 +194,49 @@ public class SimpleTG
     }
 
     /// <summary>
-    /// Sends a message with custom choice buttons.
+    /// Creates a progress bar message for all administrators.
     /// </summary>
-    /// <param name="text">The message text.</param>
-    /// <param name="choices">Array of button labels.</param>
-    /// <param name="timeout">Optional timeout in seconds.</param>
-    /// <returns>The label of the pressed button or null if timeout occurred.</returns>
-    public async Task<string?> AskChoiceAsync(string text, string[] choices, int? timeout = null)
+    /// <param name="title">The title of the operation.</param>
+    /// <returns>A TGProgressBar object to control the updates.</returns>
+    public async Task<TGProgressBar> CreateProgressBarAsync(string title)
     {
-        var buttons = choices
-            .Select(c => InlineKeyboardButton.WithCallbackData(c, c))
-            .Select((item, index) => new { item, index })
-            .GroupBy(x => x.index / 2)
-            .Select(g => g.Select(x => x.item).ToArray())
-            .ToArray();
-        var keyboard = new InlineKeyboardMarkup(buttons);
+        var sentMessages = new List<(long ChatId, int MessageId)>();
+        string initialText = $"⏳ *{title}*\n□□□□□□□□□□ 0%";
 
-        var question = new PendingQuestion();
-
-        foreach (var chatId in _adminIds)
+        foreach (var id in _adminIds)
         {
             try
             {
-                var msg = await _client.SendMessage(chatId, text, replyMarkup: keyboard);
-                question.SentMessages.Add((chatId, msg.Id));
-                _pendingRequests[msg.Id] = question;
+                var msg = await _client.SendMessage(id, initialText, parseMode: Telegram.Bot.Types.Enums.ParseMode.Markdown);
+                sentMessages.Add((id, msg.Id));
             }
             catch { }
         }
 
-        return await WaitForResponseAsync(question, timeout ?? _defaultTimeout);
+        return new TGProgressBar(_client, sentMessages, title);
+    }
+
+    /// <summary>
+    /// Registers a command (e.g., /start, /stop) and associates it with an action.
+    /// </summary>
+    /// <param name="command">Command text (e.g., "/stop").</param>
+    /// <param name="action">The async function to execute.</param>
+    public void OnCommand(string command, Func<Task> action)
+    {
+
+        _commands[command.ToLower()] = action;
     }
 
     #endregion
 
     #region Internal Logic
+
+    private void Log(string message)
+    {
+        string timestamp = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff");
+        string logEntry = $"[{timestamp}] | {message}";
+        OnLog?.Invoke(this, logEntry);
+    }
 
     private async Task<string?> WaitForResponseAsync(PendingQuestion question, int timeoutSeconds)
     {
@@ -233,9 +280,29 @@ public class SimpleTG
 
             if (question.Tcs.TrySetResult(response))
             {
+                Log($"Response received from {userName} (ID: {currentChatId}): {response}");
                 if (update.CallbackQuery != null)
                 {
                     await bot.AnswerCallbackQuery(update.CallbackQuery.Id, $"Accepted from {userName}");
+                }
+            }
+            return;
+        }
+
+        if (update.Message?.Text != null && update.Message.ReplyToMessage == null)
+        {
+            string incomingText = update.Message.Text.ToLower().Trim();
+
+            if (_commands.TryGetValue(incomingText, out var action))
+            {
+                try
+                {
+                    Log($"Command executed by admin (ID: {currentChatId}): {incomingText}");
+                    await action.Invoke();
+                }
+                catch (Exception ex)
+                {
+                    await ReportErrorAsync("Command Execution Error", ex);
                 }
             }
         }

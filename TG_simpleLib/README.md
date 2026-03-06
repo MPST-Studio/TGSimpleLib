@@ -1,6 +1,8 @@
 ﻿# TGSimpleLib 🤖
 
-[![GitHub](https://img.shields.io/badge/GitHub-Repo-blue?logo=github)](https://github.com/wertkiz/TGSimpleLib)
+[![NuGet](https://img.shields.io/nuget/v/TGSimpleLib.svg)](https://www.nuget.org/packages/TGSimpleLib/)
+[![Downloads](https://img.shields.io/nuget/dt/TGSimpleLib.svg)](https://www.nuget.org/packages/TGSimpleLib/)
+[![GitHub](https://img.shields.io/badge/GitHub-Organization-blue?logo=github)](https://github.com/MPST-Studio/TGSimpleLib)
 
 [English](#english) | [Русский](#русский)
 
@@ -8,87 +10,116 @@
 
 ## English
 
-**TGSimpleLib** is a lightweight C# wrapper for Telegram bots. It's designed for developers who need to send notifications, files, and get instant feedback without setting up complex bot architectures.
+**TGSimpleLib** by **MPST-Studio** is a high-level C# wrapper for Telegram bots. It's designed for developers who need professional monitoring tools (notifications, files, commands, progress bars, and logs) with zero boilerplate.
 
-### What's new in v1.1.0:
-*   **File Uploads**: Send logs, documents, or memory streams directly to admins.
-*   **Error Reporting**: Beautifully formatted exception reports with stack traces.
-*   **Full Localization**: All built-in buttons and messages are now in English for global compatibility.
+### What's new in v1.2.0:
+*   **Command Handling**: Register commands like `/start` or `/status` in one line.
+*   **Progress Bars**: Visual feedback for long-running tasks without spamming the chat.
+*   **Logging System**: Built-in `OnLog` event to track every action and response.
+*   **Branding**: Officially moved to **MPST-Studio** organization with a new icon.
 
-### Usage:
+### Full Usage Example:
+
 ```csharp
-// Initialize: Token, Timeout (sec), and Admin IDs
-var bot = new SimpleTG("YOUR_TOKEN", 30, 12345678);
+using TGSimpleLib;
 
-// 1. Simple notification
-await bot.NotifyAsync("🚀 System started!");
+// 1. Initialization (Token, Timeout, Admin IDs)
+var bot = new SimpleTG("YOUR_TOKEN", 30, 12345678, 87654321);
 
-// 2. File upload from disk
-await bot.SendFileAsync("logs/app.log", "Today's server log");
+// 2. Logging (Capture every action into a file or console)
+bot.OnLog += (sender, logMessage) => File.AppendAllText("bot.log", logMessage + Environment.NewLine);
 
-// 3. File upload from Memory (Stream) without disk access
-byte[] logBytes = System.Text.Encoding.UTF8.GetBytes("This is an in-memory report");
-using (var ms = new System.IO.MemoryStream(logBytes))
-{
-    await bot.SendFileAsync(ms, "report.txt", "Dynamic report");
+// 3. Command Handling (Bot is listening to admins)
+bot.OnCommand("/status", async () => {
+    await bot.NotifyAsync("✅ All systems are running normally.");
+});
+
+// 4. Simple Notification
+await bot.NotifyAsync("🚀 Bot is now online!");
+
+// 5. Send Files (Logs or Documents)
+await bot.SendFileAsync("app_log.txt", "Current server log");
+
+// 6. Progress Bar (Updates one message)
+var pb = await bot.CreateProgressBarAsync("Long Task");
+for (int i = 0; i <= 100; i += 25) {
+    await Task.Delay(1000);
+    await pb.UpdateAsync(i); // Updates to [■■■□□] 50%
 }
+await pb.CompleteAsync("Task finished!");
 
-// 4. Exception reporting (formatted report)
+// 7. Interactive Questions (Yes/No)
+bool deploy = await bot.AskBoolAsync("Run deployment?");
+
+// 8. Custom Choice Buttons
+string mode = await bot.AskChoiceAsync("Select mode:", new[] { "Eco", "Normal", "Turbo" });
+
+// 9. Wait for Text Input
+string comment = await bot.AskStringAsync("Please enter your feedback:");
+
+// 10. Error Reporting (Formats exception with stack trace)
 try {
-    // some risky code
+    int x = 0; int y = 5 / x;
 } catch (Exception ex) {
-    await bot.ReportErrorAsync("Database sync failed", ex);
+    await bot.ReportErrorAsync("Main Calculation Loop", ex);
 }
-
-// 5. Interactive questions (Yes/No or Custom)
-bool confirm = await bot.AskBoolAsync("Deploy to production?");
-string mode = await bot.AskChoiceAsync("Select mode:", new[] { "Eco", "Turbo" });
-
-// 6. Wait for text input (via ForceReply)
-string comment = await bot.AskStringAsync("Enter your comment:");
 ```
 
 
+---
 
 ## Русский
 
-**TGSimpleLib** — это максимально простая библиотека-обертка для Telegram ботов на C#. Она создана для тех, кому нужно быстро добавить систему уведомлений, отправку файлов и опросов в свои приложения без написания сложной архитектуры.
+**TGSimpleLib** от **MPST-Studio** — это высокоуровневая библиотека-обертка для Telegram ботов на C#. Создана для разработчиков, которым нужны профессиональные инструменты мониторинга (уведомления, файлы, команды, прогресс-бары и логи) без лишнего кода.
 
-### Что нового в v1.1.0:
-*   **Отправка файлов**: Отправляйте логи или документы прямо с диска или из оперативной памяти (`Stream`).
-*   **Отчеты об ошибках**: Красиво отформатированные отчеты об исключениях (`Exception`) со стек-трейсом.
-*   **Локализация**: Все встроенные кнопки и системные сообщения переведены на английский для универсальности.
+### Что нового в v1.2.0:
+*   **Обработка команд**: Регистрация команд вроде `/start` или `/stop` одной строкой.
+*   **Прогресс-бары**: Визуальное отображение хода выполнения задач без спама в чате.
+*   **Система логирования**: Событие `OnLog` для фиксации каждого действия бота и ответов админов.
+*   **Брендинг**: Библиотека официально перенесена в организацию **MPST-Studio** и получила иконку.
 
-### Примеры использования:
+### Полный пример всех функций:
 
 ```csharp
-// Инициализация: Токен, Таймаут (сек) и ID админов
-var bot = new SimpleTG("ВАШ_ТОКЕН", 30, 12345678);
+using TGSimpleLib;
 
-// 1. Простое уведомление
-await bot.NotifyAsync("🚀 Система запущена!");
+// 1. Инициализация (Токен, Таймаут, ID админов через запятую)
+var bot = new SimpleTG("ВАШ_ТОКЕН", 30, 12345678, 87654321);
 
-// 2. Отправка файлов с диска
-await bot.SendFileAsync("logs/app.log", "Лог сервера");
+// 2. Логирование (сохранение всех действий бота и ответов в файл)
+bot.OnLog += (s, log) => File.AppendAllText("actions.log", log + Environment.NewLine);
 
-// 3. Отправка данных из памяти (Stream) без сохранения файла на диск
-byte[] logBytes = System.Text.Encoding.UTF8.GetBytes("Это отчет из памяти");
-using (var ms = new System.IO.MemoryStream(logBytes))
-{
-    await bot.SendFileAsync(ms, "report.txt", "Динамический отчет");
+// 3. Обработка команд (Бот реагирует на сообщения админов)
+bot.OnCommand("/restart", async () => {
+    await bot.NotifyAsync("🔄 Перезагрузка системы инициирована...");
+});
+
+// 4. Простая отправка сообщения
+await bot.NotifyAsync("🚀 Бот запущен и готов к работе!");
+
+// 5. Отправка файлов (логи или документы)
+await bot.SendFileAsync("server.log", "Лог-файл сервера");
+
+// 6. Прогресс-бар (динамическое обновление одного сообщения)
+var pb = await bot.CreateProgressBarAsync("Резервное копирование");
+for (int i = 0; i <= 100; i += 25) {
+    await Task.Delay(1000);
+    await pb.UpdateAsync(i); // Сообщение изменится на [■■■■□□□□□□] 40%
 }
+await pb.CompleteAsync("Копирование завершено!");
 
-// 4. Отчет об ошибке (красивый формат с деталями)
+// 7. Вопрос Да/Нет (возвращает bool)
+bool result = await bot.AskBoolAsync("Выполнить обновление?");
+
+// 8. Выбор из ваших вариантов (возвращает строку)
+string selection = await bot.AskChoiceAsync("Выберите режим:", new[] { "Тихий", "Обычный", "Турбо" });
+
+// 9. Ожидание текстового ответа (возвращает string)
+string feedback = await bot.AskStringAsync("Введите комментарий к отчету:");
+
+// 10. Отчет об ошибке (красивый формат со стек-трейсом)
 try {
-    // ваш код
+    throw new Exception("Пример ошибки базы данных");
 } catch (Exception ex) {
-    await bot.ReportErrorAsync("Ошибка в модуле БД", ex);
+    await bot.ReportErrorAsync("Модуль базы данных", ex);
 }
-
-// 5. Вопросы (Да/Нет или свои варианты)
-bool confirm = await bot.AskBoolAsync("Выполнить деплой?");
-string mode = await bot.AskChoiceAsync("Выберите режим:", new[] { "Эконом", "Турбо" });
-
-// 6. Ожидание ввода текста
-string comment = await bot.AskStringAsync("Введите ваш комментарий:");
-```
